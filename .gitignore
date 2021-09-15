@@ -1,0 +1,6 @@
+# System files
+__pycache__/
+.vscode/
+
+# Configuration (with token)
+configuration.py
