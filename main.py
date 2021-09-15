@@ -88,7 +88,7 @@ async def update_players(new_players):
     for player in player_names:
         if not player in new_players:
             logout_players.append(player)
-    message_list = [f"{player} a rejoins la partie\n" for player in login_players]
+    message_list = [f"{player} a rejoint la partie\n" for player in login_players]
     message_list.extend((f"{player} a quitté la partie\n" for player in logout_players))
     message = "```fix\n"
     for act_message in message_list:
