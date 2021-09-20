@@ -62,6 +62,8 @@ async def resend_embed(server_status:minecraft.Server):
         if last_message is None or last_message.author != client.user:
             raise discord.NotFound
         await last_message.edit(embed=embed)
+    except discord.errors.NotFound:
+        await SERVER_CHANNEL.send(embed=embed)
     except ValueError:
         await SERVER_CHANNEL.send(embed=embed)
 
