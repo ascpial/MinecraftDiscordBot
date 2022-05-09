@@ -36,12 +36,14 @@ async def refresh():
         server_status = minecraft.ping(configuration.MINECRAFT_IP, port=configuration.MINECRAFT_PORT)
         if server_status.version == "Old":
             await change_status(2, None)
-            return
-        await change_status(1, len(server_status.players))
-        if player_names is None:
-            player_names = [player.name for player in server_status.players]
+        elif server_status.version == "§4● Offline":
+            await change_status(0, None)
         else:
-            await update_players(server_status.players)
+            await change_status(1, len(server_status.players))
+            if player_names is None:
+                player_names = [player.name for player in server_status.players]
+            else:
+                await update_players(server_status.players)
 
         if refresh_embed:
             await resend_embed(server_status)
@@ -67,14 +69,18 @@ async def resend_embed(server_status:minecraft.Server):
     except ValueError:
         await SERVER_CHANNEL.send(embed=embed)
 
-def get_embed(server_status:minecraft.Server):
+def get_embed(server_status: minecraft.Server):
     """return a discord.Embed containing the informations about the server"""
     embed = discord.Embed(title=f"Serveur minecraft {configuration.MINECRAFT_IP}", colour=0xb99213)
     status_list = ["⚫ Hors ligne", "🟢 En ligne", "🔴 Chargement du monde"]
     embed.add_field(name="Status", value=f"`{status_list[status]}`", inline=True)
-    embed.add_field(name="Version", value=f"`{server_status.version}`", inline=True)
-    players_string = "\n".join([player.name for player in server_status.players])
-    embed.add_field(name=f"Joueurs {players}/{server_status.players.max}", value=f"```fix\n{players_string}```", inline=False)
+    if status == 1:
+        embed.add_field(name="Version", value=f"`{server_status.version}`", inline=True)
+        if len(server_status > 0):
+            players_string = "\n".join([player.name for player in server_status.players])
+        else:
+            players_string = "Aucun joueur"
+        embed.add_field(name=f"Joueurs {players}/{server_status.players.max}", value=f"```fix\n{players_string}```", inline=False)
     embed.set_footer(text=configuration.MINECRAFT_IP, icon_url=configuration.ICON_URL)
     return embed
 
