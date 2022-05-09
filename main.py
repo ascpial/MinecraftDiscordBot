@@ -76,7 +76,7 @@ def get_embed(server_status: minecraft.Server):
     embed.add_field(name="Status", value=f"`{status_list[status]}`", inline=True)
     if status == 1:
         embed.add_field(name="Version", value=f"`{server_status.version}`", inline=True)
-        if len(server_status > 0):
+        if len(server_status.players) > 0:
             players_string = "\n".join([player.name for player in server_status.players])
         else:
             players_string = "Aucun joueur"
