@@ -35,8 +35,8 @@ If your text editor does not support scheme checking, use the following pattern:
         "port": SERVER_PORT
     },
     "other": {
-        "polling_interval": POLLING_INTERVAL
-        "icon_url": "ICON_URL",
+        "polling_interval": POLLING_INTERVAL,
+        "icon_url": "ICON_URL"
     }
 }
 ```

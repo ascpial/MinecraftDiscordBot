@@ -21,12 +21,19 @@ BOT_STATUS = [
     nextcord.Status.do_not_disturb,
 ]
 
-bot = nextcord.Client()
+bot = commands.Bot()
+
+@bot.event
+async def on_ready():
+    print(
+        f"Ready! Logged in as {bot.user.name}#{bot.user.discriminator}"
+    )
 
 config = Configuration("configuration.json")
 
 class MinecraftPingerCog(commands.Cog):
-    def __init__(self) -> None:
+    def __init__(self, bot: commands.Bot) -> None:
+        self.bot = bot
         self.ready = False
 
         self.status = 0
@@ -35,6 +42,7 @@ class MinecraftPingerCog(commands.Cog):
 
     @commands.Cog.listener("ready")
     async def on_ready(self) -> None:
+        print("ready")  
         if config.LOG_CHANNEL_ID is not None:
             self.log_channel = bot.get_channel(config.LOG_CHANNEL_ID)
         if config.SERVER_CHANNEL_ID is not None:
@@ -45,7 +53,7 @@ class MinecraftPingerCog(commands.Cog):
         
         self.ready = True
 
-    @tasks.loop(seconds = config.POLLING_INTERVAL)
+    #@tasks.loop(seconds = config.POLLING_INTERVAL)
     async def refresh(self):
         try:
             server_status = minecraft.ping(
@@ -139,6 +147,7 @@ class MinecraftPingerCog(commands.Cog):
         return embed
         
     async def refresh_server(self):
+        print("refreshing server")
         embed = self.get_embed()
         
         try:
@@ -152,6 +161,7 @@ class MinecraftPingerCog(commands.Cog):
             await self.server_channel.send(embed=embed)
 
     async def refresh_status(self):
+        print("refreshing status")
         status = BOT_STATUS[self.status]
 
         if self.status == 1:
@@ -167,13 +177,10 @@ class MinecraftPingerCog(commands.Cog):
             activity = None
         
         await bot.change_presence(status=status, activity=activity)
+cog=MinecraftPingerCog(bot)
+bot.add_cog(cog)
 
-bot.add_cog(MinecraftPingerCog())
-
-@bot.event
-async def on_ready():
-    print(
-        f"Ready! Logged in as {bot.user.name}#{bot.user.discriminator}"
-    )
+for name, func in cog.get_listeners():
+    print(name, '->', func)
 
 bot.run(config.BOT_TOKEN)
