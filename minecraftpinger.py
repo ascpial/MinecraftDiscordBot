@@ -177,5 +177,5 @@ class MinecraftPingerCog(commands.Cog):
         
         await self.bot.change_presence(status=status, activity=activity)
 
-def setup(bot, config: Configuration):
+def setup(bot: commands.Bot, config: Configuration):
     bot.add_cog(MinecraftPingerCog(bot, config))

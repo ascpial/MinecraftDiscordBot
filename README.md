@@ -9,6 +9,15 @@ The configuration allows you to support servers hoster like aternos.
 
 # Installation
 
+If you don't have it already, install Python 3 (latest version is recommended but older should also work).
+
+Clone (`git clone https://github.com/ascpial/MinecraftDiscordBot`) the reperstory on your computer or download the code.
+
+Open a command line, navigate to the correct folder and run the command : `python3 -m pip install -r requirements.txt`
+
+If python3 doesn't work, try using `python` or directly `pip` (instead of `python3 -m pip`).
+
+When this is done, go to the configuration part.
 
 # Setup
 
@@ -50,3 +59,38 @@ Replace the values with the correct ones. Here is the reference:
 
 * `POLLING_INTERVAL`: The interval between pings to the server in seconds. By default, 15.0 seconds
 * `ICON_URL`: The url of the icon used in the embed for server status. Should looks like this: `https://example.com/img/img1892.png`
+
+# Advanced setup
+
+If your using a host like aternos, the server could be marked as online even if it is not joinable.
+This appends because the host provider shows an add or say that the server is offline.
+
+The server also shows a version corresponding to the state of the server : preparing, offline...
+
+You can show this issue by filling `offline` and `starting` fields in the config:
+```jsonc
+{
+    // Config stuffs...
+    "minecraft": {
+        // Your minecraft server...
+        "offline": [
+            "§4● Offline"
+        ],
+        "starting": [
+            "Old"
+        ]
+    }
+}
+```
+
+This means, when the server version is equal to `§4● Offline`, it will be marked as offline, and when the server version is `Old`, it is marked as starting.
+
+If you want, you can make a pull request adding example configurations for specific hosters.
+
+# Starting the bot
+
+After installation and setup, you can start the bot with the command `python3 main.py`.
+
+# Contact
+
+If you have any issues with the installation process or want to help me for things such as english or code, feel free to join my [Discord server](https://discord.gg/nT5J8mDStr).
