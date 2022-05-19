@@ -3,4 +3,4 @@ __pycache__/
 .vscode/
 
 # Configuration (with token)
-configuration.py
+configuration.json

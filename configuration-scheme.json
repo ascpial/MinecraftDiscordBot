@@ -1,0 +1,75 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema",
+    "properties": {
+        "discord": {
+            "description": "This is where you setup the bot discord-wise.",
+            "properties": {
+                "bot_token": {
+                    "type": "string",
+                    "description": "The token of the bot.",
+                    "pattern": "[\\w-]{24}\\.[\\w-]{6}\\.[\\w-]{27}"
+                },
+                "log_channel": {
+                    "type": "integer",
+                    "description": "The ID of the channel where join message will be sent."
+                },
+                "server_channel": {
+                    "type": "integer",
+                    "description": "The ID of the channel where status message will be sent."
+                }
+            },
+            "required": [
+                "bot_token"
+            ]
+        },
+        "minecraft": {
+            "description": "This is where you setup your bot minecraft-wise.",
+            "properties": {
+                "ip_adress": {
+                    "type": "string",
+                    "description": "The IP or the domain name of the server."
+                },
+                "port": {
+                    "type": "integer",
+                    "description": "The port used by the minecraft server.",
+                    "default": 25565
+                },
+                "offline": {
+                    "type": "array",
+                    "description": "Versions corresponding to an offline status, useful for aternos servers.",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "starting": {
+                    "type": "array",
+                    "description": "Versions corresponding to a starting status, userful for aternos servers.",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            },
+            "required": [
+                "ip_adress"
+            ]
+        },
+        "other": {
+            "description": "Other misc configuration.",
+            "properties": {
+                "polling_interval": {
+                    "type": "number",
+                    "description": "The interval between pings to the server in seconds.",
+                    "default": 15.0
+                },
+                "icon_url": {
+                    "type": "string",
+                    "description": "The url of the icon used in the embed for server status."
+                }
+            }
+        }
+    },
+    "required": [
+        "discord",
+        "minecraft"
+    ]
+}
