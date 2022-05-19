@@ -22,7 +22,7 @@ When you have your token, you can create a file name `configuration.json` with t
 ```
 
 If your text editor does not support scheme checking, use the following pattern:
-```
+```json
 {
     "$schema": "./configuration-scheme.json",
     "discord": {
@@ -45,7 +45,7 @@ Replace the values with the correct ones. Here is the reference:
 * `LOG_CHANNEl_ID`: The ID of the channel where join message will be sent. Should look like this: 870607520958382131
 * `SERVER_CHANNEL_ID`: The ID of the channel where status message will be sent. Should look like this: 870607520958382131
 
-* `SERVER_IP`: The IP or the domain name of the server. Should look like this `mc.example.com` or this `192.168.0.1` **REQUIRED**
+* `SERVER_IP`: The IP or the domain name of the server. Should look like this `mc.example.com` or like this `192.168.0.1` **REQUIRED**
 *  `SERVER_PORT`: The port used by the minecraft server. By default, 25565
 
 * `POLLING_INTERVAL`: The interval between pings to the server in seconds. By default, 15.0 seconds
