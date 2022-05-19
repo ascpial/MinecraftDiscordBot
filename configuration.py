@@ -18,7 +18,7 @@ class Configuration:
     POLLING_INTERVAL: float
 
     def __init__(self, filename: str) -> None:
-        with open(filename) as config_file:
+        with open(filename, encoding='utf-8') as config_file:
             self.raw_json = json.load(config_file)
         
         assert "discord" in self.raw_json, "the discord field is required"
