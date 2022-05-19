@@ -1,132 +1,179 @@
-"""Discord bot to show minecraft server status in discord"""
+from typing import List
 
-
-import discord
-from discord.ext import tasks
+import nextcord
+from nextcord.ext import commands, tasks
 
 import minecraft
-import configuration
 
-client = discord.Client()
+from configuration import Configuration
 
-LOG_CHANNEL: discord.TextChannel = None
-SERVER_CHANNEL: discord.TextChannel = None
+SERVER_STATUS = [
+    "Offline",
+    "Online",
+    "Starting"
+]
 
-status = None
-players = None
-player_names = None
+SERVER_STATUS_EMOJIS = ["⚫", "🟢", "🔴"]
 
-refresh_embed = False
+BOT_STATUS = [
+    nextcord.Status.invisible,
+    nextcord.Status.online,
+    nextcord.Status.do_not_disturb,
+]
 
-@client.event
-async def on_ready():
-    global LOG_CHANNEL, SERVER_CHANNEL
-    print(f"Ready ! Logged in as {client.user.name}#{client.user.discriminator}")
-    LOG_CHANNEL = client.get_channel(configuration.LOG_CHANNEL)
-    SERVER_CHANNEL = client.get_channel(configuration.SERVER_CHANNEL)
-    refresh.start()
-    print("Started refresh loop")
+bot = nextcord.Client()
 
-@tasks.loop(seconds=configuration.INTERVAL)
-async def refresh():
-    """Main refresh loop"""
-    global refresh_embed, player_names
-    refresh_embed = False
-    try:
-        server_status = minecraft.ping(configuration.MINECRAFT_IP, port=configuration.MINECRAFT_PORT)
-        if server_status.version == "Old":
-            await change_status(2, None)
-        elif server_status.version == "§4● Offline":
-            await change_status(0, None)
-        else:
-            await change_status(1, len(server_status.players))
-            if player_names is None:
-                player_names = [player.name for player in server_status.players]
-            else:
-                await update_players(server_status.players)
+config = Configuration("configuration.json")
 
-        if refresh_embed:
-            await resend_embed(server_status)
+class MinecraftPingerCog(commands.Cog):
+    def __init__(self) -> None:
+        self.ready = False
+
+        self.status = 0
+        self.refresh_needed = True
+        self.players: List[str] = []
+
+    @commands.Cog.listener("ready")
+    async def on_ready(self) -> None:
+        if config.LOG_CHANNEL_ID is not None:
+            self.log_channel = bot.get_channel(config.LOG_CHANNEL_ID)
+        if config.SERVER_CHANNEL_ID is not None:
+            self.server_channel = bot.get_channel(config.SERVER_CHANNEL_ID)
         
-    except TimeoutError:
-        await change_status(0, None)
-    except ConnectionRefusedError:
-        await change_status(0, None)
-    except AttributeError:
-        await change_status(2, None)
+        if not self.ready:
+            self.refresh.start()
+        
+        self.ready = True
 
-async def resend_embed(server_status:minecraft.Server):
-    """Refresh the embed for the server channel"""
-    embed = get_embed(server_status)
-    # check if the last message is bot's one
-    try:
-        last_message = await SERVER_CHANNEL.fetch_message(SERVER_CHANNEL.last_message_id)
-        if last_message is None or last_message.author != client.user:
-            raise discord.NotFound
-        await last_message.edit(embed=embed)
-    except discord.errors.NotFound:
-        await SERVER_CHANNEL.send(embed=embed)
-    except ValueError:
-        await SERVER_CHANNEL.send(embed=embed)
+    @tasks.loop(seconds = config.POLLING_INTERVAL)
+    async def refresh(self):
+        try:
+            server_status = minecraft.ping(
+                config.MINECRAFT_SERVER_IP,
+                port=config.MINECRAFT_SERVER_PORT
+            )
+            await self.update_players(server_status)
+            await self.update_status(server_status=server_status)
 
-def get_embed(server_status: minecraft.Server):
-    """return a discord.Embed containing the informations about the server"""
-    embed = discord.Embed(title=f"Serveur minecraft {configuration.MINECRAFT_IP}", colour=0xb99213)
-    status_list = ["⚫ Hors ligne", "🟢 En ligne", "🔴 Chargement du monde"]
-    embed.add_field(name="Status", value=f"`{status_list[status]}`", inline=True)
-    if status == 1:
-        embed.add_field(name="Version", value=f"`{server_status.version}`", inline=True)
-        if len(server_status.players) > 0:
-            players_string = "\n".join([player.name for player in server_status.players])
-        else:
-            players_string = "Aucun joueur"
-        embed.add_field(name=f"Joueurs {players}/{server_status.players.max}", value=f"```fix\n{players_string}```", inline=False)
-    embed.set_footer(text=configuration.MINECRAFT_IP, icon_url=configuration.ICON_URL)
-    return embed
+        except TimeoutError:
+            await self.update_status(status=0)
+        except ConnectionRefusedError:
+            await self.update_status(status=0)
+        
+        if self.refresh_needed:
+            await self.refresh_status()
+            if config.SERVER_CHANNEL_ID is not None:
+                await self.refresh_server()
+            self.refresh_needed = False
+    
+    async def update_players(self, server_status: minecraft.Server):
+        players = [player.name for player in players]
 
-async def update_players(new_players):
-    """"Refresh the needed parts for the player list, such as login messages"""
-    global player_names
-    new_players = [player.name for player in new_players]
-    login_players = []
-    logout_players = []
-    for player in new_players:
-        if not player in player_names:
-            login_players.append(player)
-    for player in player_names:
-        if not player in new_players:
-            logout_players.append(player)
-    message_list = [f"{player} a rejoint la partie\n" for player in login_players]
-    message_list.extend((f"{player} a quitté la partie\n" for player in logout_players))
-    message = "```fix\n"
-    for act_message in message_list:
-        if len(message) + len(act_message) + 3 <= 2000:
-            message += act_message
-        else:
-            await LOG_CHANNEL.send(content=message+"```")
-            message = "```fix\n"
-    if message != "```fix\n":
-        await LOG_CHANNEL.send(content=message+"```")
-    player_names = new_players
+        login_players = []
+        logout_players = []
 
-async def change_status(new_status, new_players):
-    """Change the status to the specified value. 0 is offline, 1 is online and 2 is starting (Old, loading world)"""
-    global status, players, refresh_embed
-    statuss = [discord.Status.invisible, discord.Status.online, discord.Status.do_not_disturb]
-    kwargs = {}
-    if new_status != status:
-        status = new_status
-        kwargs["status"] = statuss[status]
-    if new_players != players:
-        players = new_players
-        if players is not None:
-            if players != 1:
-                kwargs["activity"] = discord.Game(f"Minecraft avec {players} joueurs")
+        for player in players:
+            if not player in self.players:
+                login_players.append(player)
+        
+        for player in self.players:
+            if not player in players:
+                logout_players.append(player)
+        
+        message_list = [f"{player} a rejoint la partie\n" for player in login_players]
+        message_list.extend((f"{player} a quitté la partie\n" for player in logout_players))
+        message = "```fix\n"
+
+        for act_message in message_list:
+            if len(message) + len(act_message) + 3 <= 2000:
+                message += act_message
             else:
-                kwargs["activity"] = discord.Game(f"Minecraft avec 1 joueur")
-        else: kwargs["activity"] = None
-    if len(kwargs) > 0:
-        await client.change_presence(**kwargs)
-        refresh_embed = True
+                await self.log_channel.send(content=message+"```")
+                message = "```fix\n"
+        
+        if message != "```fix\n":
+            await self.log_channel.send(content=message+"```")
+        
+        self.players = players
+    
+    async def update_status(
+        self,
+        status: int = None,
+        server_status: minecraft.Server = None
+    ) -> None:
+        if status is not None:
+            if status != self.status:
+                self.status = status
+                self.refresh_needed = True
+        else:
+            self.version = server_status.version
+            self.max_players = server_status.players.max
 
-client.run(configuration.TOKEN)
+            if self.version in config.MINECRAFT_OFFLINE_VERSIONS:
+                self.update_status(status=0)
+                return
+            elif self.version in config.MINECRAFT_STARTING_VERSIONS:
+                self.update_status(status=2)
+                return
+            else:
+                self.update_status(status=1)
+    
+    async def get_embed(self):
+        embed = nextcord.Embed(title=f"Minecraft Server {config.MINECRAFT_SERVER_IP}", colour=0xb99213)
+
+        status_string = SERVER_STATUS_EMOJIS[self.status] + SERVER_STATUS[self.status]
+
+        embed.add_field(name="Status", value=f"`{status_string}`", inline=True)
+
+        if self.status == 1:
+            embed.add_field(name="Version", value=f"`{self.version}`", inline=True)
+            if len(self.players) > 0:
+                players_string = "\n".join(self.players)
+            else:
+                players_string = "Aucun joueur"
+            embed.add_field(
+                name=f"Joueurs {len(self.players)}/{self.max_players}", value=f"```fix\n{players_string}```", inline=False
+            )
+        
+        embed.set_footer(text=config.MINECRAFT_SERVER_IP, icon_url=config.EMBED_ICON_URL)
+        return embed
+        
+    async def refresh_server(self):
+        embed = self.get_embed()
+        
+        try:
+            last_message = await self.server_channel.fetch_message(self.server_channel.last_message_id)
+            if last_message is None or last_message.author != bot.user:
+                raise nextcord.NotFound
+            await last_message.edit(embed=embed)
+        except nextcord.errors.NotFound:
+            await self.server_channel.send(embed=embed)
+        except ValueError:
+            await self.server_channel.send(embed=embed)
+
+    async def refresh_status(self):
+        status = BOT_STATUS[self.status]
+
+        if self.status == 1:
+            if len(self.players) != 1:
+                activity = nextcord.Game(
+                    f"Minecraft with {len(self.players)} players"
+                )
+            else:
+                activity = nextcord.Game(
+                    f"Minecraft with 1 player"
+                )
+        else:
+            activity = None
+        
+        await bot.change_presence(status=status, activity=activity)
+
+bot.add_cog(MinecraftPingerCog())
+
+@bot.event
+async def on_ready():
+    print(
+        f"Ready! Logged in as {bot.user.name}#{bot.user.discriminator}"
+    )
+
+bot.run(config.BOT_TOKEN)
