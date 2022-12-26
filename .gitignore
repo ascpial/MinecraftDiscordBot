@@ -1,6 +1,7 @@
 # System files
 __pycache__/
 .vscode/
+venv/
 
 # Configuration (with token)
 configuration.json

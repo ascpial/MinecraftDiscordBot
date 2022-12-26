@@ -1,0 +1,11 @@
+version: '3'
+
+services:
+  mdb:
+    image: python:3.10
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: sh -c "pip install -r requirements.txt && python main.py"
+    stdin_open: true
+    tty: true

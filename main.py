@@ -1,20 +1,32 @@
-from typing import List
+import json
 
-import nextcord
-from nextcord.ext import commands
+import discord
+from discord.ext import tasks
 
-from configuration import Configuration
+import server
 
-bot = commands.Bot()
+client = discord.Client(intents=discord.Intents.default())
 
-@bot.event
+with open('configuration.json') as file:
+    config = json.load(file)
+
+token = config.get('token')
+
+trackers_data = config.get('servers')
+
+trackers: list[server.Tracker] = []
+
+for tracker in trackers_data:
+    trackers.append(server.Tracker.from_data(tracker))
+
+@tasks.loop(seconds=5)
+async def update():
+    for tracker in trackers:
+        await tracker.update(client)
+
+@client.event
 async def on_ready():
-    print(
-        f"Ready! Logged in as {bot.user.name}#{bot.user.discriminator}"
-    )
+    await update.start()
+    print("ready")
 
-config = Configuration("configuration.json")
-
-bot.load_extension("minecraftpinger", extras={"config": config})
-
-bot.run(config.BOT_TOKEN)
+client.run(token)

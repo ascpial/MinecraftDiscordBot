@@ -1,1 +1,1 @@
-nextcord
+discord
