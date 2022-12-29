@@ -24,9 +24,14 @@ async def update():
     for tracker in trackers:
         await tracker.update(client)
 
+launched = False
+
 @client.event
 async def on_ready():
-    await update.start()
-    print("ready")
+    global launched
+    if not launched:
+        update.start()
+        launched = True
+    print(f"Ready! Connected as {client.user.name}!")
 
 client.run(token)

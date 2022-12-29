@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import discord
-import minecraft
+from mcstatus import JavaServer
 from enum import IntEnum
 import aiohttp
 
@@ -21,34 +21,34 @@ class Sender:
             raise ValueError(
                 "Cannot create sender class without textchannel_id and webhook_url"
             )
-        
+
         if textchannel_id is not None and webhook_url is not None:
             raise ValueError(
                 "You cannot specify both textchannel_id and webhook_url"
             )
-        
+
         if textchannel_id is not None:
             self.type = SenderType.textchannel
             self.textchannel_id = textchannel_id
-        
+
         if webhook_url is not None:
             self.type = SenderType.webhook
             self.webhook_url = webhook_url
-        
+
         self.thread_id = thread_id
-        
+
     async def send(self, client:discord.Client, *args, **kwargs):
         if self.type == SenderType.textchannel:
             channel = client.get_channel(self.textchannel_id)
 
             if channel is None:
                 raise ValueError(f'The channel id `{self.textchannel_id}` is invalid or the bot can\'t see the channel')
-            
+
             if self.thread_id is not None:
                 channel = channel.get_thread(self.thread_id)
 
             await channel.send(*args, **kwargs)
-        
+
         if self.type == SenderType.webhook:
             async with aiohttp.ClientSession() as session:
                 webhook = discord.Webhook.from_url(self.webhook_url, session=session)
@@ -95,21 +95,22 @@ class State:
         self.players_login = set()
         self.players_logout = set()
 
-    def update(self):
+    async def update(self):
         self.previous_state = self.state
 
         try:
-            server = minecraft.ping(self.ip, self.port)
+            server = JavaServer(self.ip, self.port)
+            status = await server.async_status()
         except (TimeoutError, ConnectionRefusedError): # server not reachable
             self.state = ServerState.offline
         except AttributeError: # the result cannot be parsed
             self.state = ServerState.starting
         else:
-            if server.version in self.offline_versions:
+            if status.version.name in self.offline_versions:
                 self.state = ServerState.offline
-            elif server.version in self.starting_versions:
+            elif status.version.name in self.starting_versions:
                 self.state = ServerState.starting
-            elif server.version in self.sleeping_versions:
+            elif status.version.name in self.sleeping_versions:
                 self.state = ServerState.sleeping
             else:
                 self.state = ServerState.online
@@ -118,19 +119,20 @@ class State:
             self.players_logout = set()
             self.players_login = self.players
             self.players = set()
-        elif self.state == ServerState.online:
-            players = [player.name for player in server.players]
+        else:
+            if status.players.sample is not None:
+                players = [player.name for player in status.players.sample]
+            else:
+                players = []
             for player in players:
                 if player not in self.players:
                     self.players_login.add(player)
-            
+
             for player in self.players:
                 if player not in players:
                     self.players_logout.add(player)
-            
-            self.players = set(players)
 
-        print(self.state, self.players)
+            self.players = set(players)
 
         self.refreshed = True
 
@@ -138,19 +140,19 @@ class State:
         players = self.players_login
         self.players_login = set()
         return list(players)
-    
+
     def new_players_logout(self) -> list[str]:
         players = self.players_logout
         self.players_logout = set()
         return list(players)
-    
+
     def state_changed(self) -> bool:
         if self.refreshed:
             self.refreshed = False
             return len(self.new_players_logout()) > 0 or len(self.new_players_login()) > 0 or not (self.previous_state == self.state)
         else: # didn't updated since last call
             return False
-        
+
     @classmethod
     def from_data(cls, data: dict) -> State:
         return cls(
@@ -173,9 +175,9 @@ class Tracker:
         self.server_state = server_state
         self.show_state_in_status = show_state_in_status
         self.state = state
-    
+
     async def update(self, client: discord.Client):
-        self.state.update()
+        await self.state.update()
 
         if self.login_target is not None:
             messages = []
@@ -188,12 +190,12 @@ class Tracker:
             if new_players_logout != []:
                 for player in new_players_logout:
                     messages.append(f'{player} a quitté la partie')
-            
+
             if len(messages) > 0:
                 join_messages = '\n'.join(messages)
                 message = f"```fix\n{join_messages}\n```"
                 await self.login_target.send(client, message)
-        
+
         update_state = self.state.state_changed()
 
         if self.show_state_in_status and update_state:
@@ -202,7 +204,7 @@ class Tracker:
                     game = discord.Game(f'Joue à minecraft avec {len(self.state.players)} joueurs')
                 else:
                     game = discord.Game(f'Joue à minecraft avec 1 joueur')
-                
+
                 await client.change_presence(
                     activity=game,
                     status=discord.Status.online,
@@ -232,7 +234,7 @@ class Tracker:
             server_state = Sender.from_data(data.get('server_notifs'))
         else:
             server_state = None
-        
+
         return cls(
             state,
             login_target=login_target,
