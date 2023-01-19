@@ -193,7 +193,7 @@ class Tracker:
 
             if len(messages) > 0:
                 join_messages = '\n'.join(messages)
-                message = f"```fix\n{join_messages}\n```"
+                message = f"```ansi\n\u001b[0;33m{join_messages}\n```"
                 await self.login_target.send(client, message)
 
         update_state = self.state.state_changed()
